@@ -5,11 +5,13 @@ import json
 import Call
 import Operator
 
+
 class QueueManager: 
     def __init__(self):
         self.operators = {op.id: op for op in [Operator.Operator("A"), Operator.Operator("B")]}
         self.callQueue = []
         self.activeCalls = {}
+        self.callTimers = {}
     
     def handleCommand(self, command):
         try:
@@ -36,6 +38,10 @@ class QueueManager:
 
                 operator = self.operators.get(id)
                 
+                if operator and operator.currentCall in self.callTimers:
+                    self.callTimers[operator.currentCall.id].cancel()
+                    del self.callTimers[operator.currentCall.id]
+                
                 if operator and operator.state == "ringing":
                     call = operator.currentCall
                     call.answered = True
@@ -47,6 +53,10 @@ class QueueManager:
                     return f"Invalid id: {id}"
                 
                 operator = self.operators.get(id)
+
+                if operator and operator.currentCall in self.callTimers:
+                    self.callTimers[operator.currentCall.id].cancel()
+                    del self.callTimers[operator.currentCall.id]
 
                 if operator and operator.state == "ringing":
                     call = operator.currentCall
@@ -71,6 +81,10 @@ class QueueManager:
                 call = self.activeCalls.get(id)
                 operator = call.assignedOperator
                 
+                if operator and call.id in self.callTimers:
+                    self.callTimers[call.id].cancel()
+                    del self.callTimers[call.id]
+
                 if operator:
                     operator.state = "available"
                     operator.currentCall = None
@@ -100,6 +114,10 @@ class QueueManager:
                 operator.state = "ringing"
                 operator.currentCall = call
                 call.assignedOperator = operator
+
+                timeout = reactor.callLater(10, self.handleTimeOut, call.id, operator.id)
+                self.callTimers[call.id] = timeout
+
                 return f"Call {call.id} ringing for operator {operator.id}"
         
         return None
@@ -109,6 +127,23 @@ class QueueManager:
             return True
         return False
 
+    def handleTimeOut(self, callId, operatorId):
+        call = self.activeCalls.get(callId)
+        operator = self.operators.get(operatorId)
+
+        operator.state = "available"
+        operator.currentCall = None
+        call.assignedOperator = None
+
+        response = [f"Call {callId} ignored by operator {operatorId}"]
+        assignement = self.assignCallToOperator(call)
+        
+        if not assignement:
+            self.callQueue.append(call)
+        else:
+            response.append(assignement)
+        
+        QueueManagerFactory().queueManager.sendLine(json.dumps({"response": response}).encode('utf-8'))
 
 class QueueManagerProtocol(LineReceiver):
     def __init__(self, queueManager):
