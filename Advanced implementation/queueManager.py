@@ -12,75 +12,87 @@ class QueueManager:
         self.activeCalls = {}
     
     def handleCommand(self, command):
-        cmd = command.get("command")
-        id = command.get("id")
-
-        if cmd == "call":
-            call = Call.Call(id)
-            self.activeCalls[id] = call
-
-            response = [f"Call {id} received"]
-            assingment = self.assignCallToOperator(call)
-
-            if not assingment:
-                self.callQueue.append(call)
-                response.append(f"Call {id} waiting in queue")
-            else:
-                response.append(assingment)
+        try:
+            cmd = command.get("command")
+            id = command.get("id")
             
-            return response
-        
-        elif cmd == "answer":
-            operator = self.operators.get(id)
-        
-            if operator and operator.state == "ringing":
-                call = operator.currentCall
-                call.answered = True
-                operator.state = "busy"
-                return f"Call {call.id} answered by operator {operator.id}"
-        
-        elif cmd == "reject":
-            operator = self.operators.get(id)
-        
-            if operator and operator.state == "ringing":
-                call = operator.currentCall
-                call.assignedOperator = None
-                operator.state = "available"
-                operator.currentCall = None
-                response = [f"Call {call.id} rejected by operator {operator.id}"]
-
+            if cmd == "call":
+                call = Call.Call(id)
+                self.activeCalls[id] = call
+                response = [f"Call {id} received"]
                 assingment = self.assignCallToOperator(call)
 
                 if not assingment:
                     self.callQueue.append(call)
+                    response.append(f"Call {id} waiting in queue")
                 else:
                     response.append(assingment)
-
-            return response
                 
-        elif cmd == "hangup":
-            call = self.activeCalls.get(id)
-            operator = call.assignedOperator
+                return response
+            
+            elif cmd == "answer":
+                if self.checkForValidId(id):
+                    return f"Invalid id: {id}"
 
-            if operator:
-                operator.state = "available"
-                operator.currentCall = None
-                operator.currentCallId = None
+                operator = self.operators.get(id)
+                
+                if operator and operator.state == "ringing":
+                    call = operator.currentCall
+                    call.answered = True
+                    operator.state = "busy"
+                    return f"Call {call.id} answered by operator {operator.id}"
+            
+            elif cmd == "reject":
+                if self.checkForValidId(id):
+                    return f"Invalid id: {id}"
+                
+                operator = self.operators.get(id)
 
-            if call.answered:
-                response = [f"Call {id} finished and operator {operator.id} available"]
-            else:
-                response = [f"Call {id} missed"]
+                if operator and operator.state == "ringing":
+                    call = operator.currentCall
+                    call.assignedOperator = None
+                    operator.state = "available"
+                    operator.currentCall = None
+                    response = [f"Call {call.id} rejected by operator {operator.id}"]
 
-            if self.callQueue:
-                nextCall = self.callQueue.pop(0)
-                a = self.assignCallToOperator(nextCall)
-                if a:
-                    response.append(a)
+                    assingment = self.assignCallToOperator(call)
 
-            del self.activeCalls[id]
+                    if not assingment:
+                        self.callQueue.append(call)
+                    else:
+                        response.append(assingment)
 
-            return response
+                return response
+                    
+            elif cmd == "hangup":
+                if self.checkForValidId(id):
+                    return f"Invalid id: {id}"
+                
+                call = self.activeCalls.get(id)
+                operator = call.assignedOperator
+                
+                if operator:
+                    operator.state = "available"
+                    operator.currentCall = None
+                    operator.currentCallId = None
+
+                if call.answered:
+                    response = [f"Call {id} finished and operator {operator.id} available"]
+                else:
+                    response = [f"Call {id} missed"]
+
+                if self.callQueue:
+                    nextCall = self.callQueue.pop(0)
+                    a = self.assignCallToOperator(nextCall)
+                    if a:
+                        response.append(a)
+
+                del self.activeCalls[id]
+
+                return response
+        
+        except Exception as e:
+            return f"Error processing command"
 
     def assignCallToOperator(self, call):
         for operator in self.operators.values():
@@ -91,6 +103,12 @@ class QueueManager:
                 return f"Call {call.id} ringing for operator {operator.id}"
         
         return None
+    
+    def checkForValidId(self, id):
+        if id not in self.activeCalls and id not in self.operators and id not in self.callQueue:
+            return True
+        return False
+
 
 class QueueManagerProtocol(LineReceiver):
     def __init__(self, queueManager):
