@@ -38,7 +38,7 @@ class QueueManager:
 
                 operator = self.operators.get(id)
                 
-                if operator and operator.currentCall in self.callTimers:
+                if operator and operator.currentCall.id in self.callTimers:
                     self.callTimers[operator.currentCall.id].cancel()
                     del self.callTimers[operator.currentCall.id]
                 
@@ -54,7 +54,7 @@ class QueueManager:
                 
                 operator = self.operators.get(id)
 
-                if operator and operator.currentCall in self.callTimers:
+                if operator and operator.currentCall.id in self.callTimers:
                     self.callTimers[operator.currentCall.id].cancel()
                     del self.callTimers[operator.currentCall.id]
 
@@ -122,11 +122,6 @@ class QueueManager:
         
         return None
     
-    def checkForValidId(self, id):
-        if id not in self.activeCalls and id not in self.operators and id not in self.callQueue:
-            return True
-        return False
-
     def handleTimeOut(self, callId, operatorId):
         call = self.activeCalls.get(callId)
         operator = self.operators.get(operatorId)
@@ -136,14 +131,20 @@ class QueueManager:
         call.assignedOperator = None
 
         response = [f"Call {callId} ignored by operator {operatorId}"]
-        assignement = self.assignCallToOperator(call)
+
+        # checks if there are calls in the queue
+        nextCall = self.callQueue.pop(0) if self.callQueue else None
         
-        if not assignement:
-            self.callQueue.append(call)
-        else:
-            response.append(assignement)
+        if nextCall:
+            self.assignCallToOperator(nextCall) 
+            response.append(f"Call {nextCall.id} ringing for operator {operatorId}")       
         
-        QueueManagerFactory().queueManager.sendLine(json.dumps({"response": response}).encode('utf-8'))
+        print(response)
+
+    def checkForValidId(self, id):
+        if id not in self.activeCalls and id not in self.operators and id not in self.callQueue:
+            return True
+        return False
 
 class QueueManagerProtocol(LineReceiver):
     def __init__(self, queueManager):
