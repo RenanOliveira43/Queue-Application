@@ -19,11 +19,15 @@ class QueueManager:
             call = Call.Call(id)
             self.activeCalls[id] = call
 
-            response = [f"Call {id} received\n"]
+            response = [f"Call {id} received"]
 
-            if not self.assignCallToOperator(call):
+            assingment = self.assignCallToOperator(call)
+
+            if not assingment:
                 self.callQueue.append(call)
-                response.append(f"Call {id} waiting in queue\n")
+                response.append(f"Call {id} waiting in queue")
+            else:
+                response.append(assingment)
             
             return response
         
@@ -34,7 +38,7 @@ class QueueManager:
                 call = operator.currentCall
                 call.answerd = True
                 operator.state = "busy"
-                return f"Call {call.id} answered by operator {operator.id}\n"
+                return f"Call {call.id} answered by operator {operator.id}"
         
         elif cmd == "reject":
             operator = self.operators.get(id)
@@ -44,7 +48,7 @@ class QueueManager:
                 call.assignedOperator = None
                 operator.state = "avaliable"
                 operator.currentCall = None
-                response = [f"Call {call.id} rejected by operator {operator.id}\n"]
+                response = [f"Call {call.id} rejected by operator {operator.id}"]
 
                 if not self.assignCallToOperator(call):
                     self.callQueue.append(call)
@@ -59,7 +63,7 @@ class QueueManager:
                 operator.currentCall = call
                 call.assignedOperator = operator
         
-                return f"Call {call.id} ringing for operator {operator.id}\n"
+                return f"Call {call.id} ringing for operator {operator.id}"
         
         return None
     

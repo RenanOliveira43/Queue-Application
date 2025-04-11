@@ -3,30 +3,6 @@ from twisted.protocols.basic import LineReceiver
 import json
 import cmd
 
-class CallCenterClientProtocol(LineReceiver):
-    def __init__(self, app):
-        self.app = app
-    
-    def connectionMade(self):
-        self.app.setProtocol(self)
-    
-    def lineReceived(self, data):
-        response = json.loads(data)
-
-        if response:
-            print(response)
-        else:
-            print("No response received.")
-
-class CallCenterClientFactory(protocol.ClientFactory):
-    protocol = CallCenterClientProtocol
-
-    def __init__(self, app):
-        self.app = app
-
-    def buildProtocol(self, addr):
-        return CallCenterClientProtocol(self.app)
-
 class CallCenterHandleInput(cmd.Cmd):
     def __init__(self):
         super().__init__()
@@ -72,10 +48,31 @@ class StdinInput(LineReceiver):
         else:
             self.transport.write(self.interpreter.prompt.encode())
 
+class CallCenterClientProtocol(LineReceiver):
+    def __init__(self, app):
+        self.app = app
+    
+    def connectionMade(self):
+        self.app.setProtocol(self)
+    
+    def lineReceived(self, data):
+        response = json.loads(data)
 
+        if response:
+            print(response)
+        else:
+            print("No response received.")
+
+class CallCenterClientFactory(protocol.ClientFactory):
+    def __init__(self, app):
+        self.app = app
+
+    def buildProtocol(self, addr):
+        return CallCenterClientProtocol(self.app)
+    
 if __name__ == "__main__":
     interpreter = CallCenterHandleInput()
     interpreter.setProtocol(5678)
     stdio.StandardIO(StdinInput(interpreter))
-    reactor.connectTCP("localhost", 5678, CallCenterClientFactory(interpreter))
+    reactor.connectTCP("localhost", interpreter.protocol, CallCenterClientFactory(interpreter))
     reactor.run()
