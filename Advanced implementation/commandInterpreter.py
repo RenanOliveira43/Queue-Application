@@ -7,6 +7,7 @@ class CallCenterHandleInput(cmd.Cmd):
     def __init__(self):
         super().__init__()
         self.protocol = None
+        self.prompt = '> '
     
     def setProtocol(self, protocol):
         self.protocol = protocol
@@ -57,9 +58,19 @@ class CallCenterClientProtocol(LineReceiver):
     
     def lineReceived(self, data):
         response = json.loads(data)
-
-        if response:
-            print(response)
+        print()
+        
+        if "response" in response:
+            resp = response["response"]
+            
+            if isinstance(resp, list):
+                for msg in resp:
+                    print(msg)
+            else:
+                print(resp)
+            
+            print(self.app.prompt, end='', flush=True)
+        
         else:
             print("No response received.")
 
@@ -72,7 +83,7 @@ class CallCenterClientFactory(protocol.ClientFactory):
     
 if __name__ == "__main__":
     interpreter = CallCenterHandleInput()
-    interpreter.setProtocol(5678)
     stdio.StandardIO(StdinInput(interpreter))
-    reactor.connectTCP("localhost", interpreter.protocol, CallCenterClientFactory(interpreter))
+    factory = CallCenterClientFactory(interpreter)
+    reactor.connectTCP("localhost", 5678, factory)
     reactor.run()

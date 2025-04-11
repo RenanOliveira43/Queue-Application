@@ -119,7 +119,7 @@ class QueueManagerProtocol(LineReceiver):
         response = self.queueManager.handleCommand(command)
         
         if response:
-            self.sendLine(json.dumps(response).encode('utf-8'))
+            self.sendLine(json.dumps({"response": response}).encode('utf-8'))
 
 class QueueManagerFactory(Factory):
     def __init__(self):
