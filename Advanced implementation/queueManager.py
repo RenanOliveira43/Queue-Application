@@ -20,7 +20,6 @@ class QueueManager:
             self.activeCalls[id] = call
 
             response = [f"Call {id} received"]
-
             assingment = self.assignCallToOperator(call)
 
             if not assingment:
@@ -36,7 +35,7 @@ class QueueManager:
         
             if operator and operator.state == "ringing":
                 call = operator.currentCall
-                call.answerd = True
+                call.answered = True
                 operator.state = "busy"
                 return f"Call {call.id} answered by operator {operator.id}"
         
@@ -46,27 +45,53 @@ class QueueManager:
             if operator and operator.state == "ringing":
                 call = operator.currentCall
                 call.assignedOperator = None
-                operator.state = "avaliable"
+                operator.state = "available"
                 operator.currentCall = None
                 response = [f"Call {call.id} rejected by operator {operator.id}"]
 
-                if not self.assignCallToOperator(call):
+                assingment = self.assignCallToOperator(call)
+
+                if not assingment:
                     self.callQueue.append(call)
+                else:
+                    response.append(assingment)
+
+            return response
+                
+        elif cmd == "hangup":
+            call = self.activeCalls.get(id)
+            operator = call.assignedOperator
+
+            if operator:
+                operator.state = "available"
+                operator.currentCall = None
+                operator.currentCallId = None
+
+            if call.answered:
+                response = [f"Call {id} finished and operator {operator.id} available"]
+            else:
+                response = [f"Call {id} missed"]
+
+            if self.callQueue:
+                nextCall = self.callQueue.pop(0)
+                a = self.assignCallToOperator(nextCall)
+                if a:
+                    response.append(a)
+
+            del self.activeCalls[id]
 
             return response
 
-    
     def assignCallToOperator(self, call):
         for operator in self.operators.values():
-            if operator.state == "avaliable":
+            if operator.state == "available":
                 operator.state = "ringing"
                 operator.currentCall = call
                 call.assignedOperator = operator
-        
                 return f"Call {call.id} ringing for operator {operator.id}"
         
         return None
-    
+
 class QueueManagerProtocol(LineReceiver):
     def __init__(self, queueManager):
         self.queueManager = queueManager
