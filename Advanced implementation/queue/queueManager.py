@@ -12,6 +12,7 @@ class QueueManager:
         self.callQueue = []
         self.activeCalls = {}
         self.callTimers = {}
+        self.currentClient = None
     
     def handleCommand(self, command):
         try:
@@ -33,7 +34,7 @@ class QueueManager:
                 return response
             
             elif cmd == "answer":
-                if self.checkForValidId(id):
+                if not self.checkForValidId(id):
                     return f"Invalid id: {id}"
 
                 operator = self.operators.get(id)
@@ -49,7 +50,7 @@ class QueueManager:
                     return f"Call {call.id} answered by operator {operator.id}"
             
             elif cmd == "reject":
-                if self.checkForValidId(id):
+                if not self.checkForValidId(id):
                     return f"Invalid id: {id}"
                 
                 operator = self.operators.get(id)
@@ -75,7 +76,7 @@ class QueueManager:
                 return response
                     
             elif cmd == "hangup":
-                if self.checkForValidId(id):
+                if not self.checkForValidId(id):
                     return f"Invalid id: {id}"
                 
                 call = self.activeCalls.get(id)
@@ -97,9 +98,10 @@ class QueueManager:
 
                 if self.callQueue:
                     nextCall = self.callQueue.pop(0)
-                    a = self.assignCallToOperator(nextCall)
-                    if a:
-                        response.append(a)
+                    assingment = self.assignCallToOperator(nextCall)
+                    
+                    if assingment:
+                        response.append(assingment)
 
                 del self.activeCalls[id]
 
@@ -129,6 +131,7 @@ class QueueManager:
         operator.state = "available"
         operator.currentCall = None
         call.assignedOperator = None
+        del self.activeCalls[callId]
 
         response = [f"Call {callId} ignored by operator {operatorId}"]
 
@@ -137,19 +140,25 @@ class QueueManager:
         
         if nextCall:
             self.assignCallToOperator(nextCall) 
-            response.append(f"Call {nextCall.id} ringing for operator {operatorId}")       
+            response.append(f"Call {nextCall.id} ringing for operator {nextCall.assignedOperator.id}")       
         
-        print(response)
+        self.currentClient.sendLine(json.dumps({"response": response}).encode('utf-8'))
 
     def checkForValidId(self, id):
         if id not in self.activeCalls and id not in self.operators and id not in self.callQueue:
-            return True
-        return False
+            return False
+        return True
 
 class QueueManagerProtocol(LineReceiver):
     def __init__(self, queueManager):
         self.queueManager = queueManager
     
+    def connectionMade(self):
+        self.queueManager.currentClient = self
+    
+    def connectionLost(self, reason):
+        self.queueManager.currentClient = None
+
     def lineReceived(self, line):
         command = json.loads(line)
         response = self.queueManager.handleCommand(command)
