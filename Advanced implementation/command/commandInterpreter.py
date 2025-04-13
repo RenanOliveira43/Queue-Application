@@ -31,6 +31,11 @@ class CallCenterHandleInput(cmd.Cmd):
     def do_hangup(self, id):
         self.sendCommand("hangup", id)
 
+    def do_exit(self, line):
+        print("Exiting...")
+        reactor.stop()
+        return True
+
 class StdinInput(LineReceiver):
     delimiter = b'\n'
 
@@ -85,6 +90,6 @@ if __name__ == "__main__":
     interpreter = CallCenterHandleInput()
     stdio.StandardIO(StdinInput(interpreter))
     factory = CallCenterClientFactory(interpreter)
-   # reactor.connectTCP("host.docker.internal", 5678, factory)
-    reactor.connectTCP("localhost", 5678, factory)
+    reactor.connectTCP("host.docker.internal", 5678, factory)
+    #reactor.connectTCP("localhost", 5678, factory)
     reactor.run()
