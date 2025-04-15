@@ -87,9 +87,14 @@ class CallCenterClientFactory(protocol.ClientFactory):
         return CallCenterClientProtocol(self.app)
     
 if __name__ == "__main__":
-    interpreter = CallCenterHandleInput()
-    stdio.StandardIO(StdinInput(interpreter))
-    factory = CallCenterClientFactory(interpreter)
-    reactor.connectTCP("host.docker.internal", 5678, factory)
-    #reactor.connectTCP("localhost", 5678, factory)
-    reactor.run()
+    try:
+        interpreter = CallCenterHandleInput()
+        stdio.StandardIO(StdinInput(interpreter))
+        factory = CallCenterClientFactory(interpreter)
+        reactor.connectTCP("host.docker.internal", 5678, factory)
+        #reactor.connectTCP("localhost", 5678, factory)
+        reactor.run()
+    
+    except Exception as e:
+        print(f"Error: {e}")
+        reactor.stop()
