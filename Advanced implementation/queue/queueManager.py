@@ -181,9 +181,8 @@ class QueueManager:
         response = [f"Call {callId} ignored by operator {operatorId}"]
 
         # checks if there are calls in the queue
-        nextCall = self.callQueue.pop(0) if self.callQueue else None
-        
-        if nextCall:
+        if self.callQueue:
+            nextCall = self.callQueue.pop(0)
             self.assignCallToOperator(nextCall) 
             response.append(f"Call {nextCall.id} ringing for operator {nextCall.assignedOperator.id}")       
         
