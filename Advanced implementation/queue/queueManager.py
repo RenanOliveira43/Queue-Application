@@ -40,11 +40,11 @@ class QueueManager:
             id = command.get("id")
             
             if cmd == "call":
-                '''
+                """
                 Receives a new call and assigns it to an operator if available. 
                 If no operator is available, the call is added to the queue.
                 Returns a list of messages indicating the call status.
-                '''
+                """
                 if id in self.activeCalls:
                     return f"Call {id} already exists"
 
