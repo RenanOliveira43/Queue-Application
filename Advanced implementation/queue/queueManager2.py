@@ -36,113 +36,123 @@ class QueueManager:
         - "hangup"
         """
         try:
+            commandHandler = {"call": self.handleCall, "answer": self.handleAnswer, "reject": self.handleReject, "hangup": self.handleHangup}
+            
             cmd = command.get("command")
             id = command.get("id")
+
+            handler = commandHandler.get(cmd)
+
+            if not handler:
+                return f"Invalid command: {cmd}"
             
-            if cmd == "call":
-                """
-                Receives a new call and assigns it to an operator if available. 
-                If no operator is available, the call is added to the queue.
-                Returns a list of messages indicating the call status.
-                """
-                if id in self.activeCalls:
-                    return f"Call {id} already exists"
-
-                call = Call.Call(id)
-                self.activeCalls[id] = call
-                response = [f"Call {id} received"]
-                assingment = self.assignCallToOperator(call)
-
-                if not assingment:
-                    self.callQueue.append(call)
-                    response.append(f"Call {id} waiting in queue")
-                else:
-                    response.append(assingment)
-                
-                return response
+            return handler(id)
             
-            elif cmd == "answer":
-                """
-                Marks a call as answered by the operator if the operator is in a "ringing" state.
-                Returns a message indicating the call was answered.
-                """
-                if not self.checkForValidId(id):
-                    return f"Invalid id: {id}"
-
-                operator = self.operators.get(id)
-                self.disableTimeOut(operator.currentCall)
-                
-                if operator and operator.state == "ringing":
-                    call = operator.currentCall
-                    call.answered = True
-                    operator.state = "busy"
-                    return f"Call {call.id} answered by operator {operator.id}"
-            
-            elif cmd == "reject":
-                """
-                Rejects a call assigned to an operator in the "ringing" state. 
-                The call is either reassigned to another operator or added back to the queue.
-                Returns a list of messages indicating the rejection and reassignment status.
-                """
-                if not self.checkForValidId(id):
-                    return f"Invalid id: {id}"
-                
-                operator = self.operators.get(id)
-                self.disableTimeOut(operator.currentCall)
-
-                if operator and operator.state == "ringing":
-                    call = operator.currentCall
-                    call.assignedOperator = None
-                    operator.state = "available"
-                    operator.currentCall = None
-                    response = [f"Call {call.id} rejected by operator {operator.id}"]
-
-                    assingment = self.assignCallToOperator(call)
-
-                    if not assingment:
-                        self.callQueue.append(call)
-                    else:
-                        response.append(assingment)
-
-                return response
-                    
-            elif cmd == "hangup":
-                """
-                Ends a call and updates the operator's state to "available". 
-                If the call was answered, it is marked as finished; otherwise, it is marked as missed.
-                If there are calls in the queue, the next call is assigned to an operator.
-                Returns a list of messages indicating the call's conclusion and any subsequent assignments.
-                """
-                if not self.checkForValidId(id):
-                    return f"Invalid id: {id}"
-                
-                call = self.activeCalls.get(id)
-                operator = call.assignedOperator
-                self.disableTimeOut(call)
-
-                if operator:
-                    operator.state = "available"
-                    operator.currentCall = None
-                    operator.currentCallId = None
-
-                if call.answered:
-                    response = [f"Call {id} finished and operator {operator.id} available"]
-                else:
-                    response = [f"Call {id} missed"]
-
-                if self.callQueue:
-                    nextCall = self.callQueue.pop(0)
-                    assingment = self.assignCallToOperator(nextCall)
-                    
-                    if assingment:
-                        response.append(assingment)
-
-                del self.activeCalls[id]
-
-                return response
-        
         except Exception as e:
             return f"Error processing command"
+        
+    def handleCall(self, id):
+        """
+        Receives a new call and assigns it to an operator if available. 
+        If no operator is available, the call is added to the queue.
+        Returns a list of messages indicating the call status.
+        """
+        if id in self.activeCalls:
+            return f"Call {id} already exists"
+
+        call = Call.Call(id)
+        self.activeCalls[id] = call
+        response = [f"Call {id} received"]
+        assingment = self.assignCallToOperator(call)
+
+        if not assingment:
+            self.callQueue.append(call)
+            response.append(f"Call {id} waiting in queue")
+        else:
+            response.append(assingment)
+        
+        return response
+
+    def handleAnswer(self, id):
+        """
+        Marks a call as answered by the operator if the operator is in a "ringing" state.
+        Returns a message indicating the call was answered.
+        """
+        if not self.checkForValidId(id):
+            return f"Invalid id: {id}"
+
+        operator = self.operators.get(id)
+        self.disableTimeOut(operator.currentCall)
+        
+        if operator and operator.state == "ringing":
+            call = operator.currentCall
+            call.answered = True
+            operator.state = "busy"
+            return f"Call {call.id} answered by operator {operator.id}"
+
+    def handleReject(self, id):
+        """
+        Rejects a call assigned to an operator in the "ringing" state. 
+        The call is either reassigned to another operator or added back to the queue.
+        Returns a list of messages indicating the rejection and reassignment status.
+        """
+        if not self.checkForValidId(id):
+            return f"Invalid id: {id}"
+        
+        operator = self.operators.get(id)
+        self.disableTimeOut(operator.currentCall)
+
+        if operator and operator.state == "ringing":
+            call = operator.currentCall
+            call.assignedOperator = None
+            operator.state = "available"
+            operator.currentCall = None
+            response = [f"Call {call.id} rejected by operator {operator.id}"]
+
+            assingment = self.assignCallToOperator(call)
+
+            if not assingment:
+                self.callQueue.append(call)
+            else:
+                response.append(assingment)
+
+        return response
+    
+    def handleHangup(self, id):
+        """
+        Ends a call and updates the operator's state to "available". 
+        If the call was answered, it is marked as finished; otherwise, it is marked as missed.
+        If there are calls in the queue, the next call is assigned to an operator.
+        Returns a list of messages indicating the call's conclusion and any subsequent assignments.
+        """
+        if not self.checkForValidId(id):
+            return f"Invalid id: {id}"
+        
+        call = self.activeCalls.get(id)
+        
+        operator = call.assignedOperator
+        self.disableTimeOut(call)
+
+        if operator:
+            operator.state = "available"
+            operator.currentCall = None
+            operator.currentCallId = None
+
+        if call.answered:
+            response = [f"Call {id} finished and operator {operator.id} available"]
+        else:
+            response = [f"Call {id} missed"]
+
+        if self.callQueue:
+            nextCall = self.callQueue.pop(0)
+            assingment = self.assignCallToOperator(nextCall)
+            
+            if assingment:
+                response.append(assingment)
+
+        del self.activeCalls[id]
+
+        return response
 
     def assignCallToOperator(self, call):
         """
